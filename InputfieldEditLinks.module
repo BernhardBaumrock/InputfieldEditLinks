@@ -1,0 +1,92 @@
+<?php
+/**
+ * Adds direkt Links to edit Fields
+ * Bernhard Baumrock 2016 - baumrock.com
+ * 
+ * todo:
+ *  - check if it works with ajax fields
+ * 
+ * bugs:
+ *  - two icons on page fields
+ */
+
+class InputfieldEditLinks extends WireData implements Module {
+
+    /**
+     * getModuleInfo is a module required by all modules to tell ProcessWire about them
+     *
+     * @return array
+     *
+     */
+    public static function getModuleInfo() {
+
+        return array(
+            'title' => 'InputfieldEditLinks',
+            'version' => 1, 
+            'summary' => 'Adds direkt Links to edit Fields in Admin-Forms',
+            //'href' => 'https://processwire.com',
+            'singular' => true, 
+            'autoload' => true, 
+            'icon' => 'link', 
+            );
+    }
+
+    /**
+     * Initialize the module
+     */
+    public function init() {
+        $this->addHookAfter('Inputfield::render', $this, 'addEditLink');
+        $this->addHookAfter('Page::render', $this, 'addEditLinkScript');
+    }
+
+    /**
+     * add edit link markup to inputfields
+     *
+     */
+    public function addEditLink(HookEvent $event) {
+        wire('modules')->get('TracyDebugger');
+        $field = $event->object;
+
+        if(!wire('user')->isSuperuser()) return;
+
+        $page = wire('page');
+        if($page->process !== 'ProcessPageEdit') return; // prevent replacement when editing the field itself
+
+        if($field->name) {
+            $f = wire('fields')->get($field->name);
+            if(isset($f->id) AND $f->id) {
+                $url = wire('pages')->get(16)->url . 'edit?id=' . $f->id;
+                $event->return = '<span class="ifel_icon"><a href="'.$url.'"><i class="fa fa-pencil-square-o"></i></a></span>' . $event->return;
+            }
+        }
+    }
+
+    /**
+     * add javascript to move edit links to a nice position
+     * 
+     */
+    public function addEditLinkScript(HookEvent $event) {
+        $page = $event->object;
+
+        // only add this to ProcessPageEdit pages
+        if($page->process != 'ProcessPageEdit') return;
+
+        ob_start(); ?>
+        <script type="text/javascript">
+            $( document ).ready(function() {
+                $('.ifel_icon').each(function() {
+                    var icon = $(this);
+                    var parent = icon.closest('li.Inputfield');
+
+                    parent.prepend(icon);
+                    icon.css('padding', '5px');
+                    icon.css('float', 'right');
+                });
+            });
+        </script>
+        <?php
+        $script = ob_get_clean();
+        $event->return = str_replace("</body>", $script."</body>", $event->return); 
+    }
+    
+}
